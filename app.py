@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS - Exact Replica of Algopulse Dark SaaS UI
+# Custom CSS - Exact Replica of Algopulse Dark SaaS UI with Interactive Tabs
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -22,70 +22,36 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Main Pure Obsidian Dark Background */
     .stApp {
         background-color: #07090e;
         color: #f8fafc;
     }
 
-    /* Top Header Padding Adjustment */
     .block-container {
         padding-top: 1.2rem !important;
         padding-bottom: 3rem !important;
         max-width: 1380px !important;
     }
 
-    /* Hide default Streamlit top bar elements for clean SaaS look */
     header[data-testid="stHeader"] {
         background-color: rgba(7, 9, 14, 0.85);
         backdrop-filter: blur(12px);
     }
 
-    /* Top SaaS Navbar */
-    .ap-navbar {
+    /* Brand Header */
+    .ap-brand-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 0 18px 0;
+        padding-bottom: 12px;
         border-bottom: 1px solid #161b26;
-        margin-bottom: 24px;
-    }
-    .ap-nav-left {
-        display: flex;
-        align-items: center;
-        gap: 28px;
+        margin-bottom: 16px;
     }
     .ap-brand {
-        font-size: 1.35rem;
+        font-size: 1.4rem;
         font-weight: 800;
         color: #ffffff;
         letter-spacing: -0.03em;
-    }
-    .ap-nav-links {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .ap-nav-item {
-        color: #8b95a5;
-        font-size: 0.88rem;
-        font-weight: 500;
-        padding: 7px 14px;
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .ap-nav-item.active {
-        background-color: #111c33;
-        color: #3b82f6;
-        border: 1px solid #1d3566;
-        font-weight: 600;
-    }
-    .ap-nav-right {
-        display: flex;
-        align-items: center;
-        gap: 14px;
     }
     .ap-avatar-pill {
         display: inline-flex;
@@ -124,10 +90,10 @@ st.markdown("""
         color: #7c8594;
         font-size: 0.88rem;
         margin-top: 3px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
     }
 
-    /* Hero Summary Container (Exact Algopulse Box) */
+    /* Hero Summary Container */
     .ap-hero-box {
         background-color: #0c0f16;
         border: 1px solid #181e2a;
@@ -187,7 +153,7 @@ st.markdown("""
         font-size: 0.8rem;
     }
 
-    /* 4-Column Sub-Stats Grid inside Hero Box */
+    /* 4-Column Sub-Stats Grid */
     .ap-stats-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -239,7 +205,7 @@ st.markdown("""
         font-size: 0.9rem;
     }
 
-    /* Strategy Row Card (Exact Algopulse Bottom Row) */
+    /* Strategy Row Card */
     .ap-strategy-row {
         background-color: #0c0f16;
         border: 1px solid #181e2a;
@@ -248,11 +214,7 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
-        transition: border-color 0.2s ease;
-    }
-    .ap-strategy-row:hover {
-        border-color: #293548;
+        margin-bottom: 14px;
     }
     .ap-strat-left {
         display: flex;
@@ -330,6 +292,15 @@ st.markdown("""
         color: #ef4444;
     }
 
+    /* Panel Box for Brokers & Strategies Tabs */
+    .ap-panel-box {
+        background-color: #0c0f16;
+        border: 1px solid #181e2a;
+        border-radius: 14px;
+        padding: 22px 26px;
+        margin-bottom: 18px;
+    }
+
     /* Action Buttons Styling */
     .stButton>button {
         background-color: #131823;
@@ -347,21 +318,15 @@ st.markdown("""
         color: #ffffff;
     }
     button[kind="primary"] {
-        background-color: #2563eb !important;
-        border-color: #2563eb !important;
-        color: #ffffff !important;
+        background-color: #111c33 !important;
+        border: 1px solid #2563eb !important;
+        color: #60a5fa !important;
     }
     button[kind="primary"]:hover {
         background-color: #1d4ed8 !important;
+        color: #ffffff !important;
     }
 
-    /* Sidebar Dark Match */
-    section[data-testid="stSidebar"] {
-        background-color: #090c12;
-        border-right: 1px solid #161b26;
-    }
-
-    /* Responsive adjustments */
     @media (max-width: 768px) {
         .ap-stats-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -382,6 +347,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Session State Initialization
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "Deployed"
 if "bot_running" not in st.session_state:
     st.session_state.bot_running = False
 if "trade_logs" not in st.session_state:
@@ -400,6 +367,44 @@ if "latest_prices" not in st.session_state:
     st.session_state.latest_prices = {}
 if "show_scanner" not in st.session_state:
     st.session_state.show_scanner = True
+if "filter_mode" not in st.session_state:
+    st.session_state.filter_mode = "All"
+
+# Persistent Configuration States (So switching tabs never resets settings!)
+if "cfg_exchange" not in st.session_state:
+    st.session_state.cfg_exchange = "Delta Exchange India"
+if "cfg_api_key" not in st.session_state:
+    st.session_state.cfg_api_key = ""
+if "cfg_api_secret" not in st.session_state:
+    st.session_state.cfg_api_secret = ""
+if "cfg_api_pass" not in st.session_state:
+    st.session_state.cfg_api_pass = ""
+if "cfg_strat_name" not in st.session_state:
+    st.session_state.cfg_strat_name = "HalfTrend Momentum Core"
+if "cfg_symbols" not in st.session_state:
+    st.session_state.cfg_symbols = ["ETH/USD:USD", "BTC/USD:USD", "SOL/USD:USD"]
+if "cfg_timeframe" not in st.session_state:
+    st.session_state.cfg_timeframe = "15m"
+if "cfg_amplitude" not in st.session_state:
+    st.session_state.cfg_amplitude = 20
+if "cfg_channel_dev" not in st.session_state:
+    st.session_state.cfg_channel_dev = 2.0
+if "cfg_risk_mult" not in st.session_state:
+    st.session_state.cfg_risk_mult = 3.0
+if "cfg_signal_mode" not in st.session_state:
+    st.session_state.cfg_signal_mode = "Dynamic Both Directions (Active Long & Short on Flips/Pullbacks)"
+if "cfg_tp_choice" not in st.session_state:
+    st.session_state.cfg_tp_choice = "TP2 (2x Risk)"
+if "cfg_capital" not in st.session_state:
+    st.session_state.cfg_capital = 150.0
+if "cfg_leverage" not in st.session_state:
+    st.session_state.cfg_leverage = 10
+if "cfg_max_trades" not in st.session_state:
+    st.session_state.cfg_max_trades = 2
+if "cfg_exec_mode" not in st.session_state:
+    st.session_state.cfg_exec_mode = "Semi-Automatic (Manual Approval)"
+if "cfg_demo_mode" not in st.session_state:
+    st.session_state.cfg_demo_mode = True
 
 # Supported Exchanges Map
 EXCHANGE_OPTIONS = {
@@ -414,7 +419,6 @@ EXCHANGE_OPTIONS = {
     "KuCoin Futures": "kucoinfutures"
 }
 
-# Initialize Exchange Function
 def create_exchange_instance(selected_label, key="", secret="", password=""):
     ex_id = EXCHANGE_OPTIONS[selected_label]
     common_config = {
@@ -454,7 +458,6 @@ def create_exchange_instance(selected_label, key="", secret="", password=""):
 
     return exchange
 
-# Fetch Active Futures/Perpetual Pairs from Connected Exchange
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_exchange_pairs(selected_label):
     try:
@@ -470,88 +473,14 @@ def fetch_exchange_pairs(selected_label):
     except Exception as e:
         return [], str(e)
 
-# Sidebar Configuration (Accessible anytime via top-left arrow)
-st.sidebar.header("🔌 1. Connect Broker / Exchange")
-selected_exchange = st.sidebar.selectbox("Select Exchange", list(EXCHANGE_OPTIONS.keys()))
-
-api_key = st.sidebar.text_input("API Key", type="password", placeholder="Enter API Key")
-api_secret = st.sidebar.text_input("API Secret", type="password", placeholder="Enter API Secret")
-api_passphrase = ""
-if selected_exchange in ["OKX", "Bitget", "KuCoin Futures"]:
-    api_passphrase = st.sidebar.text_input("API Passphrase", type="password", placeholder="Required for OKX/Bitget/KuCoin")
-
-if st.session_state.connected_exchange_name != selected_exchange or not st.session_state.loaded_pairs:
-    with st.spinner(f"Loading active pairs from {selected_exchange}..."):
-        pairs, err = fetch_exchange_pairs(selected_exchange)
-        if pairs:
-            st.session_state.loaded_pairs = pairs
-            st.session_state.connected_exchange_name = selected_exchange
-        else:
-            st.session_state.loaded_pairs = ["ETH/USD:USD", "BTC/USD:USD", "SOL/USD:USD", "DOGE/USD:USD", "BTC/USDT:USDT", "ETH/USDT:USDT"]
-
-if st.sidebar.button("🔄 Refresh Exchange Pairs"):
-    st.cache_data.clear()
-    pairs, err = fetch_exchange_pairs(selected_exchange)
+# Auto-load pairs for current exchange
+if st.session_state.connected_exchange_name != st.session_state.cfg_exchange or not st.session_state.loaded_pairs:
+    pairs, err = fetch_exchange_pairs(st.session_state.cfg_exchange)
     if pairs:
         st.session_state.loaded_pairs = pairs
-        st.sidebar.success(f"✅ {len(pairs)} pairs loaded!")
-
-st.sidebar.markdown("---")
-st.sidebar.header("⚙️ 2. Strategy & Pairs")
-
-strategy_display_name = st.sidebar.text_input("Strategy Name", value="HalfTrend Momentum Core")
-
-default_selections = []
-for p in st.session_state.loaded_pairs:
-    if any(p.startswith(prefix) for prefix in ["ETH/", "BTC/", "SOL/"]):
-        default_selections.append(p)
-    if len(default_selections) == 3:
-        break
-if not default_selections and st.session_state.loaded_pairs:
-    default_selections = [st.session_state.loaded_pairs[0]]
-
-selected_symbols = st.sidebar.multiselect(
-    "📌 Active Pairs (Max 5)",
-    options=st.session_state.loaded_pairs,
-    default=default_selections,
-    max_selections=5
-)
-
-custom_pair = st.sidebar.text_input("➕ Add Custom Pair", placeholder="e.g. XAU/USDT:USDT")
-if custom_pair.strip() and custom_pair.strip() not in selected_symbols:
-    selected_symbols.append(custom_pair.strip())
-
-timeframe = st.sidebar.selectbox("Chart Timeframe", ["1m", "5m", "15m", "30m", "1h", "4h"], index=2)
-amplitude = st.sidebar.number_input("Amplitude (Lookback)", min_value=1, max_value=200, value=20, step=1)
-channel_dev = st.sidebar.number_input("Channel Deviation", min_value=0.1, max_value=10.0, value=2.0, step=0.1)
-base_risk_mult = st.sidebar.number_input("Risk Multiplier (ATR/2 x Mult)", min_value=0.5, max_value=15.0, value=3.0, step=0.1)
-
-signal_mode = st.sidebar.selectbox(
-    "🎯 Signal Generation Mode",
-    [
-        "Dynamic Both Directions (Active Long & Short on Flips/Pullbacks)",
-        "Flexible Pullback Mode",
-        "Strict Reversal (Only on HalfTrend Flip)"
-    ],
-    index=0
-)
-
-tp_target_choice = st.sidebar.selectbox("Take-Profit Target", ["TP1 (1x Risk)", "TP2 (2x Risk)", "TP3 (3x Risk)"], index=1)
-
-st.sidebar.markdown("---")
-st.sidebar.header("🛡️ 3. Capital & Execution")
-
-capital_usdt = st.sidebar.number_input("Invested Capital ($)", min_value=5.0, value=150.0, step=10.0)
-leverage = st.sidebar.slider("Set Leverage (x)", min_value=1, max_value=100, value=10)
-max_open_trades = st.sidebar.slider("Max Open Positions", min_value=1, max_value=10, value=2)
-
-execution_mode = st.sidebar.radio(
-    "Execution Mode", 
-    ["Semi-Automatic (Manual Approval)", "Fully Automatic"], 
-    index=0
-)
-
-demo_mode = st.sidebar.checkbox("🧪 Paper Trading Mode (Safe Test)", value=True)
+        st.session_state.connected_exchange_name = st.session_state.cfg_exchange
+    else:
+        st.session_state.loaded_pairs = ["ETH/USD:USD", "BTC/USD:USD", "SOL/USD:USD", "DOGE/USD:USD", "BTC/USDT:USDT", "ETH/USDT:USDT"]
 
 # HalfTrend Mathematical Engine
 def calculate_halftrend_signals(df, amplitude=20, channel_deviation=2.0, base_risk_mult=3.0, mode="Dynamic"):
@@ -687,7 +616,13 @@ def calculate_halftrend_signals(df, amplitude=20, channel_deviation=2.0, base_ri
         "candle_ts": candle_ts
     }
 
-def execute_trade_action(sig_data, is_demo, ex_label, key, secret, pass_phrase):
+def execute_trade_action(sig_data):
+    is_demo = st.session_state.cfg_demo_mode
+    ex_label = st.session_state.cfg_exchange
+    key = st.session_state.cfg_api_key
+    secret = st.session_state.cfg_api_secret
+    pass_phrase = st.session_state.cfg_api_pass
+
     try:
         ex = create_exchange_instance(ex_label, key, secret, pass_phrase)
         ex.load_markets()
@@ -720,7 +655,13 @@ def execute_trade_action(sig_data, is_demo, ex_label, key, secret, pass_phrase):
     except Exception as ex_err:
         st.error(f"Execution Error on {sig_data['Pair']}: {str(ex_err)}")
 
-def close_active_trade(idx, is_demo, ex_label, key, secret, pass_phrase):
+def close_active_trade(idx):
+    is_demo = st.session_state.cfg_demo_mode
+    ex_label = st.session_state.cfg_exchange
+    key = st.session_state.cfg_api_key
+    secret = st.session_state.cfg_api_secret
+    pass_phrase = st.session_state.cfg_api_pass
+
     trade = st.session_state.active_trades[idx]
     symbol = trade["Pair"]
     side = trade["Side"]
@@ -750,7 +691,43 @@ def close_active_trade(idx, is_demo, ex_label, key, secret, pass_phrase):
     except Exception as err:
         st.error(f"Error closing {symbol}: {str(err)}")
 
+# --- 1. TOP BRAND BAR + REAL CLICKABLE NAVIGATION BUTTONS ---
+st.markdown("""
+<div class="ap-brand-bar">
+    <div class="ap-brand">Algopulse</div>
+    <div class="ap-avatar-pill">
+        <span class="ap-avatar-circle">HT</span>
+        <span>HalfTrend Desk</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+nav_c1, nav_c2, nav_c3, nav_c4, nav_c5, _ = st.columns([1.1, 1.1, 1.1, 1.1, 1.1, 3.5])
+tabs_config = [
+    ("Dashboard", "⊞ Dashboard", nav_c1),
+    ("Strategies", "⚡ Strategies", nav_c2),
+    ("Brokers", "🔌 Brokers", nav_c3),
+    ("Deployed", "🚀 Deployed", nav_c4),
+    ("Reports", "📊 Reports", nav_c5),
+]
+for tab_key, tab_label, col in tabs_config:
+    with col:
+        btn_type = "primary" if st.session_state.active_tab == tab_key else "secondary"
+        if st.button(tab_label, key=f"nav_{tab_key}", type=btn_type):
+            st.session_state.active_tab = tab_key
+            st.rerun()
+
+st.write("")
+
 # --- Calculate Real-Time Portfolio Metrics ---
+capital_usdt = st.session_state.cfg_capital
+leverage = st.session_state.cfg_leverage
+selected_exchange = st.session_state.cfg_exchange
+selected_symbols = st.session_state.cfg_symbols
+strategy_display_name = st.session_state.cfg_strat_name
+demo_mode = st.session_state.cfg_demo_mode
+max_open_trades = st.session_state.cfg_max_trades
+
 unrealized_pnl = 0.0
 for t in st.session_state.active_trades:
     cur_p = st.session_state.latest_prices.get(t["Pair"], t["Entry Price"])
@@ -768,7 +745,7 @@ current_val = capital_usdt + total_pnl
 pnl_pct = (total_pnl / capital_usdt * 100) if capital_usdt > 0 else 0.0
 
 whole_part = int(current_val)
-dec_part = f"{abs(current_val - whole_part):.2f}"[1:]  # e.g., ".00"
+dec_part = f"{abs(current_val - whole_part):.2f}"[1:]
 
 win_rate_display = f"{int(len(winning_trades)/len(closed_trades)*100)}%" if closed_trades else "—"
 win_rate_sub = f"{len(winning_trades)} won of {len(closed_trades)} closed" if closed_trades else "shows after the first close"
@@ -783,320 +760,462 @@ open_pos_count = len(st.session_state.active_trades)
 open_pos_sub = f"{open_pos_count} active right now" if open_pos_count > 0 else "none right now"
 total_trades_count = len(closed_trades) + open_pos_count
 
-# --- 1. EXACT ALGOPULSE TOP NAVIGATION BAR ---
-st.markdown(f"""
-<div class="ap-navbar">
-    <div class="ap-nav-left">
-        <div class="ap-brand">Algopulse</div>
-        <div class="ap-nav-links">
-            <span class="ap-nav-item">⊞ Dashboard</span>
-            <span class="ap-nav-item">⚡ Strategies</span>
-            <span class="ap-nav-item">🔌 Brokers</span>
-            <span class="ap-nav-item active">🚀 Deployed</span>
-            <span class="ap-nav-item">📊 Reports</span>
-        </div>
-    </div>
-    <div class="ap-nav-right">
-        <span style="color:#8b95a5; font-size:0.9rem;">🌙</span>
-        <span style="color:#8b95a5; font-size:0.9rem;">🔔</span>
-        <div class="ap-avatar-pill">
-            <span class="ap-avatar-circle">HT</span>
-            <span>HalfTrend Desk</span>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# --- 2. PAGE HEADER & QUICK CONTROLS ---
-hdr_col1, hdr_col2, hdr_col3 = st.columns([3.5, 1, 1])
-with hdr_col1:
+# ==============================================================================
+# TAB 1: BROKERS (CONNECT EXCHANGE & API KEYS - FULLY INTERACTIVE)
+# ==============================================================================
+if st.session_state.active_tab == "Brokers":
     st.markdown("""
-    <h1 class="ap-page-title">Deployed Strategies</h1>
-    <div class="ap-page-sub">Monitor all your running strategies and their trades</div>
+    <h1 class="ap-page-title">Brokers & Exchange Connections</h1>
+    <div class="ap-page-sub">Connect your crypto futures broker API keys and select trading mode</div>
     """, unsafe_allow_html=True)
-with hdr_col2:
-    st.write("")
-    if not st.session_state.bot_running:
-        if st.button("🚀 Start Strategy", type="primary"):
-            if not selected_symbols:
-                st.error("⚠️ অন্তত ১টি পেয়ার সিলেক্ট করুন!")
-            elif not demo_mode and (not api_key or not api_secret):
-                st.error("⚠️ API Key/Secret দিন অথবা Paper Mode চালু করুন।")
-            else:
-                st.session_state.bot_running = True
-                st.rerun()
-    else:
-        if st.button("🛑 Stop Strategy"):
-            st.session_state.bot_running = False
-            st.session_state.pending_signals = []
-            st.rerun()
-with hdr_col3:
-    st.write("")
-    if st.button("⚙️ Configure"):
-        st.info("👈 বাম পাশের সাইডবার (Top-Left `>` বাটন) থেকে এক্সচেঞ্জ, ক্যাপিটাল ও স্ট্র্যাটেজি সেটিংস পরিবর্তন করুন।")
 
-# --- 3. EXACT ALGOPULSE HERO PORTFOLIO CARD ---
-st.markdown(f"""
-<div class="ap-hero-box">
-    <div class="ap-hero-top">
-        <div class="ap-hero-label">Current value</div>
-        <div class="ap-hero-value">${whole_part:,}<span class="decimals">{dec_part}</span></div>
-        <div class="ap-hero-badge-row">
-            <span class="ap-pnl-pill {pill_cls}">• {pnl_sign}${abs(total_pnl):.2f} · {pnl_pct:+.2f}%</span>
-            <span class="ap-hero-across">across 1 strategy ({'Paper Test' if demo_mode else 'LIVE'})</span>
+    with st.container():
+        b_col1, b_col2 = st.columns(2)
+        with b_col1:
+            new_ex = st.selectbox(
+                "Select Broker / Exchange",
+                list(EXCHANGE_OPTIONS.keys()),
+                index=list(EXCHANGE_OPTIONS.keys()).index(st.session_state.cfg_exchange)
+            )
+            new_demo = st.checkbox("🧪 Enable Paper Trading Mode (Safe Test without real funds)", value=st.session_state.cfg_demo_mode)
+            new_key = st.text_input("API Key", value=st.session_state.cfg_api_key, type="password", placeholder="Paste your API Key")
+            new_secret = st.text_input("API Secret", value=st.session_state.cfg_api_secret, type="password", placeholder="Paste your API Secret")
+            new_pass = st.text_input("API Passphrase (Optional - for OKX/Bitget/KuCoin)", value=st.session_state.cfg_api_pass, type="password")
+
+            if st.button("💾 Save Broker Settings", type="primary"):
+                st.session_state.cfg_exchange = new_ex
+                st.session_state.cfg_demo_mode = new_demo
+                st.session_state.cfg_api_key = new_key
+                st.session_state.cfg_api_secret = new_secret
+                st.session_state.cfg_api_pass = new_pass
+                st.success(f"✅ {new_ex} settings saved successfully!")
+                st.rerun()
+
+        with b_col2:
+            st.info(f"""
+            **Current Broker Status:**
+            - **Selected Broker:** {st.session_state.cfg_exchange}
+            - **Mode:** {'🧪 Paper Trading (Safe Mode)' if st.session_state.cfg_demo_mode else '🔴 LIVE Real Account'}
+            - **API Key Status:** {'✅ Configured' if st.session_state.cfg_api_key else '⚠️ Not Entered (Required only for LIVE)'}
+            - **Available Pairs Loaded:** {len(st.session_state.loaded_pairs)} pairs
+            """)
+            if st.button("🔄 Refresh Available Pairs from Broker"):
+                st.cache_data.clear()
+                pairs, err = fetch_exchange_pairs(new_ex)
+                if pairs:
+                    st.session_state.loaded_pairs = pairs
+                    st.session_state.connected_exchange_name = new_ex
+                    st.success(f"✅ Loaded {len(pairs)} active pairs from {new_ex}!")
+                else:
+                    st.error(f"Error: {err}")
+
+# ==============================================================================
+# TAB 2: STRATEGIES (CONFIGURE STRATEGY, PAIRS, LEVERAGE & CAPITAL)
+# ==============================================================================
+elif st.session_state.active_tab == "Strategies":
+    st.markdown("""
+    <h1 class="ap-page-title">Strategy & Risk Configuration</h1>
+    <div class="ap-page-sub">Customize your HalfTrend parameters, pairs, capital, and execution rules</div>
+    """, unsafe_allow_html=True)
+
+    s_col1, s_col2 = st.columns(2)
+    with s_col1:
+        st.subheader("⚙️ Strategy Parameters")
+        s_name = st.text_input("Strategy Display Name", value=st.session_state.cfg_strat_name)
+        valid_defaults = [p for p in st.session_state.cfg_symbols if p in st.session_state.loaded_pairs]
+        s_pairs = st.multiselect(
+            "📌 Multi-Asset Pairs (Max 5)",
+            options=st.session_state.loaded_pairs,
+            default=valid_defaults[:5]
+        )
+        custom_p = st.text_input("➕ Add Custom Symbol (Optional)", placeholder="e.g. XAU/USD:USD")
+        if custom_p.strip() and custom_p.strip() not in s_pairs:
+            s_pairs.append(custom_p.strip())
+
+        tf_list = ["1m", "5m", "15m", "30m", "1h", "4h"]
+        s_tf = st.selectbox("Chart Timeframe", tf_list, index=tf_list.index(st.session_state.cfg_timeframe))
+        s_amp = st.number_input("HalfTrend Amplitude", min_value=1, max_value=200, value=st.session_state.cfg_amplitude)
+        s_dev = st.number_input("Channel Deviation", min_value=0.1, max_value=10.0, value=st.session_state.cfg_channel_dev, step=0.1)
+        s_mult = st.number_input("Risk Multiplier (ATR/2 x Mult)", min_value=0.5, max_value=15.0, value=st.session_state.cfg_risk_mult, step=0.1)
+
+    with s_col2:
+        st.subheader("🛡️ Capital & Execution Rules")
+        s_cap = st.number_input("Invested Capital / Margin Per Trade ($)", min_value=5.0, value=st.session_state.cfg_capital, step=10.0)
+        s_lev = st.slider("Leverage (x)", min_value=1, max_value=100, value=st.session_state.cfg_leverage)
+        s_max = st.slider("Max Open Positions Limit", min_value=1, max_value=10, value=st.session_state.cfg_max_trades)
+
+        modes_list = [
+            "Dynamic Both Directions (Active Long & Short on Flips/Pullbacks)",
+            "Flexible Pullback Mode",
+            "Strict Reversal (Only on HalfTrend Flip)"
+        ]
+        s_mode = st.selectbox("Signal Generation Mode", modes_list, index=modes_list.index(st.session_state.cfg_signal_mode))
+
+        tp_list = ["TP1 (1x Risk)", "TP2 (2x Risk)", "TP3 (3x Risk)"]
+        s_tp = st.selectbox("Take-Profit Target", tp_list, index=tp_list.index(st.session_state.cfg_tp_choice))
+
+        exec_list = ["Semi-Automatic (Manual Approval)", "Fully Automatic"]
+        s_exec = st.radio("Trade Execution Mode", exec_list, index=exec_list.index(st.session_state.cfg_exec_mode))
+
+    if st.button("💾 Save & Apply Strategy Settings", type="primary"):
+        st.session_state.cfg_strat_name = s_name
+        st.session_state.cfg_symbols = s_pairs
+        st.session_state.cfg_timeframe = s_tf
+        st.session_state.cfg_amplitude = s_amp
+        st.session_state.cfg_channel_dev = s_dev
+        st.session_state.cfg_risk_mult = s_mult
+        st.session_state.cfg_capital = s_cap
+        st.session_state.cfg_leverage = s_lev
+        st.session_state.cfg_max_trades = s_max
+        st.session_state.cfg_signal_mode = s_mode
+        st.session_state.cfg_tp_choice = s_tp
+        st.session_state.cfg_exec_mode = s_exec
+        st.success("✅ Strategy configuration saved! Returning to Deployed view...")
+        st.session_state.active_tab = "Deployed"
+        st.rerun()
+
+# ==============================================================================
+# TAB 3: REPORTS (FULL TRADE HISTORY & ANALYTICS)
+# ==============================================================================
+elif st.session_state.active_tab == "Reports":
+    st.markdown("""
+    <h1 class="ap-page-title">Trade Reports & Performance</h1>
+    <div class="ap-page-sub">Complete history of all executed, open, and closed trades</div>
+    """, unsafe_allow_html=True)
+
+    r_c1, r_c2, r_c3 = st.columns(3)
+    r_c1.metric("Total Realized PnL", f"${realized_pnl:+.2f}")
+    r_c2.metric("Closed Trades", len(closed_trades))
+    r_c3.metric("Win Rate", win_rate_display)
+
+    st.markdown("---")
+    if st.session_state.trade_logs:
+        st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
+        if st.button("🗑️ Clear Trade History"):
+            st.session_state.trade_logs = []
+            st.rerun()
+    else:
+        st.info("এখনো কোনো ট্রেড হিস্ট্রি তৈরি হয়নি। স্ট্র্যাটেজি চালু করলে এখানে সব রিপোর্ট দেখা যাবে।")
+
+# ==============================================================================
+# TAB 4: DASHBOARD / DEPLOYED (MAIN ALGOPULSE MONITORING VIEW)
+# ==============================================================================
+else:
+    hdr_col1, hdr_col2, hdr_col3 = st.columns([3.5, 1, 1])
+    with hdr_col1:
+        st.markdown("""
+        <h1 class="ap-page-title">Deployed Strategies</h1>
+        <div class="ap-page-sub">Monitor all your running strategies and their trades</div>
+        """, unsafe_allow_html=True)
+    with hdr_col2:
+        st.write("")
+        if not st.session_state.bot_running:
+            if st.button("🚀 Start Strategy", type="primary"):
+                if not selected_symbols:
+                    st.error("⚠️ অন্তত ১টি পেয়ার সিলেক্ট করুন!")
+                elif not demo_mode and (not st.session_state.cfg_api_key or not st.session_state.cfg_api_secret):
+                    st.error("⚠️ Brokers ট্যাবে গিয়ে API Key দিন অথবা Paper Mode চালু করুন।")
+                else:
+                    st.session_state.bot_running = True
+                    st.rerun()
+        else:
+            if st.button("🛑 Stop Strategy"):
+                st.session_state.bot_running = False
+                st.session_state.pending_signals = []
+                st.rerun()
+    with hdr_col3:
+        st.write("")
+        if st.button("⚙️ Configure"):
+            st.session_state.active_tab = "Strategies"
+            st.rerun()
+
+    # Hero Portfolio Card
+    st.markdown(f"""
+    <div class="ap-hero-box">
+        <div class="ap-hero-top">
+            <div class="ap-hero-label">Current value</div>
+            <div class="ap-hero-value">${whole_part:,}<span class="decimals">{dec_part}</span></div>
+            <div class="ap-hero-badge-row">
+                <span class="ap-pnl-pill {pill_cls}">• {pnl_sign}${abs(total_pnl):.2f} · {pnl_pct:+.2f}%</span>
+                <span class="ap-hero-across">across 1 strategy ({'Paper Test' if demo_mode else 'LIVE'})</span>
+            </div>
         </div>
-    </div>
-    <div class="ap-stats-grid">
-        <div class="ap-stat-cell">
-            <div class="ap-stat-num">{active_strat_num} <span class="muted">/ 1</span></div>
-            <div class="ap-stat-title">Active</div>
-            <div class="ap-stat-sub">{active_strat_sub}</div>
-        </div>
-        <div class="ap-stat-cell">
-            <div class="ap-stat-num">{open_pos_count}</div>
-            <div class="ap-stat-title">Open positions</div>
-            <div class="ap-stat-sub">{open_pos_sub}</div>
-        </div>
-        <div class="ap-stat-cell">
-            <div class="ap-stat-num">{total_trades_count}</div>
-            <div class="ap-stat-title">Trades</div>
-            <div class="ap-stat-sub">{open_pos_count} open</div>
-        </div>
-        <div class="ap-stat-cell">
-            <div class="ap-winrate-wrap">
-                <div class="ap-winrate-ring">{win_rate_display}</div>
-                <div>
-                    <div class="ap-stat-title" style="margin-top:0;">Win rate</div>
-                    <div class="ap-stat-sub">{win_rate_sub}</div>
+        <div class="ap-stats-grid">
+            <div class="ap-stat-cell">
+                <div class="ap-stat-num">{active_strat_num} <span class="muted">/ 1</span></div>
+                <div class="ap-stat-title">Active</div>
+                <div class="ap-stat-sub">{active_strat_sub}</div>
+            </div>
+            <div class="ap-stat-cell">
+                <div class="ap-stat-num">{open_pos_count}</div>
+                <div class="ap-stat-title">Open positions</div>
+                <div class="ap-stat-sub">{open_pos_sub}</div>
+            </div>
+            <div class="ap-stat-cell">
+                <div class="ap-stat-num">{total_trades_count}</div>
+                <div class="ap-stat-title">Trades</div>
+                <div class="ap-stat-sub">{open_pos_count} open</div>
+            </div>
+            <div class="ap-stat-cell">
+                <div class="ap-winrate-wrap">
+                    <div class="ap-winrate-ring">{win_rate_display}</div>
+                    <div>
+                        <div class="ap-stat-title" style="margin-top:0;">Win rate</div>
+                        <div class="ap-stat-sub">{win_rate_sub}</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 4. FILTER & VIEW BAR ---
-f_col1, f_col2, f_col3 = st.columns([1, 4, 1])
-with f_col1:
-    st.button("🎛️ Filters", disabled=True)
-with f_col3:
-    toggle_label = "Hide Scanner" if st.session_state.show_scanner else "Show Scanner"
-    if st.button(f"⊞ {toggle_label}"):
-        st.session_state.show_scanner = not st.session_state.show_scanner
-        st.rerun()
+    # Interactive Filter & Scanner Toggle Bar
+    f_col1, f_col2, f_col3 = st.columns([1.2, 3.6, 1.2])
+    with f_col1:
+        filter_opts = ["All", "Running Only", "Open Trades Only"]
+        next_idx = (filter_opts.index(st.session_state.filter_mode) + 1) % len(filter_opts)
+        if st.button(f"🎛️ Filter: {st.session_state.filter_mode}"):
+            st.session_state.filter_mode = filter_opts[next_idx]
+            st.rerun()
+    with f_col3:
+        toggle_label = "Hide Scanner" if st.session_state.show_scanner else "Show Scanner"
+        if st.button(f"⊞ {toggle_label}"):
+            st.session_state.show_scanner = not st.session_state.show_scanner
+            st.rerun()
 
-# --- 5. EXACT ALGOPULSE DEPLOYED STRATEGY ROW CARD ---
-pairs_label = ", ".join([s.split(":")[0] for s in selected_symbols]) if selected_symbols else "No Pairs"
-dot_cls = "" if st.session_state.bot_running else "stopped"
-realized_cls = "green" if realized_pnl >= 0 else "red"
-total_cls = "green" if total_pnl >= 0 else "red"
-win_pct_short = f"{int(len(winning_trades)/len(closed_trades)*100)}%" if closed_trades else "0%"
+    # Deployed Strategy Row Card (Filtered dynamically)
+    show_row = True
+    if st.session_state.filter_mode == "Running Only" and not st.session_state.bot_running:
+        show_row = False
+    elif st.session_state.filter_mode == "Open Trades Only" and open_pos_count == 0:
+        show_row = False
 
-st.markdown(f"""
-<div class="ap-strategy-row">
-    <div class="ap-strat-left">
-        <div class="ap-strat-icon">
-            {strategy_display_name[0].upper() if strategy_display_name else 'H'}
-            <span class="ap-status-dot {dot_cls}"></span>
-        </div>
-        <div>
-            <div class="ap-strat-name">{strategy_display_name}</div>
-            <div class="ap-strat-meta">{pairs_label} · {selected_exchange} · <strong>{leverage}x leverage</strong></div>
-        </div>
-    </div>
-    <div class="ap-strat-right">
-        <div>
-            <div class="ap-metric-col-label">Invested</div>
-            <div class="ap-metric-col-val">${capital_usdt:,.0f}</div>
-        </div>
-        <div>
-            <div class="ap-metric-col-label">Win / Trades</div>
-            <div class="ap-metric-col-val">{win_pct_short} / {total_trades_count}</div>
-        </div>
-        <div>
-            <div class="ap-metric-col-label">Realized today</div>
-            <div class="ap-metric-col-val {realized_cls}">{realized_pnl:+.2f}</div>
-        </div>
-        <div>
-            <div class="ap-metric-col-label">PnL</div>
-            <div class="ap-metric-col-val {total_cls}">{total_pnl:+.2f}</div>
-            <div class="ap-metric-col-sub {total_cls}">{pnl_pct:+.1f}%</div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    if show_row:
+        pairs_label = ", ".join([s.split(":")[0] for s in selected_symbols]) if selected_symbols else "No Pairs"
+        dot_cls = "" if st.session_state.bot_running else "stopped"
+        realized_cls = "green" if realized_pnl >= 0 else "red"
+        total_cls = "green" if total_pnl >= 0 else "red"
+        win_pct_short = f"{int(len(winning_trades)/len(closed_trades)*100)}%" if closed_trades else "0%"
 
-# --- 6. MANUAL APPROVAL SIGNALS (SEMI-AUTO) ---
-if st.session_state.pending_signals:
-    st.warning(f"🚨 **{len(st.session_state.pending_signals)} HalfTrend Signal(s) Waiting for Approval**")
-    for idx, sig in enumerate(list(st.session_state.pending_signals)):
-        with st.container():
-            pcol1, pcol2, pcol3, pcol4, pcol5, pcol6 = st.columns(6)
-            pcol1.metric("Pair", sig["Pair"])
-            pcol2.metric("Signal", sig["Side"])
-            pcol3.metric("Entry", f"${sig['Entry Price']}")
-            pcol4.metric("Stop Loss", f"${sig['Stop Loss']}")
-            pcol5.metric("TP1 / TP2", f"${sig['TP1']} / ${sig['TP2']}")
-            pcol6.metric("TP3 (3x)", f"${sig['TP3']}")
+        st.markdown(f"""
+        <div class="ap-strategy-row">
+            <div class="ap-strat-left">
+                <div class="ap-strat-icon">
+                    {strategy_display_name[0].upper() if strategy_display_name else 'H'}
+                    <span class="ap-status-dot {dot_cls}"></span>
+                </div>
+                <div>
+                    <div class="ap-strat-name">{strategy_display_name}</div>
+                    <div class="ap-strat-meta">{pairs_label} · {selected_exchange} · <strong>{leverage}x leverage</strong></div>
+                </div>
+            </div>
+            <div class="ap-strat-right">
+                <div>
+                    <div class="ap-metric-col-label">Invested</div>
+                    <div class="ap-metric-col-val">${capital_usdt:,.0f}</div>
+                </div>
+                <div>
+                    <div class="ap-metric-col-label">Win / Trades</div>
+                    <div class="ap-metric-col-val">{win_pct_short} / {total_trades_count}</div>
+                </div>
+                <div>
+                    <div class="ap-metric-col-label">Realized today</div>
+                    <div class="ap-metric-col-val {realized_cls}">{realized_pnl:+.2f}</div>
+                </div>
+                <div>
+                    <div class="ap-metric-col-label">PnL</div>
+                    <div class="ap-metric-col-val {total_cls}">{total_pnl:+.2f}</div>
+                    <div class="ap-metric-col-sub {total_cls}">{pnl_pct:+.1f}%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info(f"Filter '{st.session_state.filter_mode}' অনুযায়ী কোনো স্ট্র্যাটেজি পাওয়া যায়নি। Filter বাটনে ক্লিক করে 'All' সিলেক্ট করুন।")
 
-            b_col1, b_col2, _ = st.columns([1.2, 1.2, 3.6])
-            with b_col1:
-                if st.button(f"✅ Approve {sig['Pair']}", key=f"app_{idx}_{sig['Pair']}_{sig['Time']}", type="primary"):
-                    if len(st.session_state.active_trades) >= max_open_trades:
-                        st.error(f"⚠️ Max Open Trades Limit ({max_open_trades}) পূর্ণ হয়ে গেছে!")
-                    else:
-                        execute_trade_action(sig, demo_mode, selected_exchange, api_key, api_secret, api_passphrase)
+    # Manual Approval Signals (Semi-Auto)
+    if st.session_state.pending_signals:
+        st.warning(f"🚨 **{len(st.session_state.pending_signals)} HalfTrend Signal(s) Waiting for Approval**")
+        for idx, sig in enumerate(list(st.session_state.pending_signals)):
+            with st.container():
+                pcol1, pcol2, pcol3, pcol4, pcol5, pcol6 = st.columns(6)
+                pcol1.metric("Pair", sig["Pair"])
+                pcol2.metric("Signal", sig["Side"])
+                pcol3.metric("Entry", f"${sig['Entry Price']}")
+                pcol4.metric("Stop Loss", f"${sig['Stop Loss']}")
+                pcol5.metric("TP1 / TP2", f"${sig['TP1']} / ${sig['TP2']}")
+                pcol6.metric("TP3 (3x)", f"${sig['TP3']}")
+
+                b_col1, b_col2, _ = st.columns([1.2, 1.2, 3.6])
+                with b_col1:
+                    if st.button(f"✅ Approve {sig['Pair']}", key=f"app_{idx}_{sig['Pair']}_{sig['Time']}", type="primary"):
+                        if len(st.session_state.active_trades) >= max_open_trades:
+                            st.error(f"⚠️ Max Open Trades Limit ({max_open_trades}) পূর্ণ হয়ে গেছে!")
+                        else:
+                            execute_trade_action(sig)
+                            st.session_state.pending_signals.pop(idx)
+                            st.rerun()
+                with b_col2:
+                    if st.button(f"❌ Reject {sig['Pair']}", key=f"rej_{idx}_{sig['Pair']}_{sig['Time']}"):
                         st.session_state.pending_signals.pop(idx)
                         st.rerun()
-            with b_col2:
-                if st.button(f"❌ Reject {sig['Pair']}", key=f"rej_{idx}_{sig['Pair']}_{sig['Time']}"):
-                    st.session_state.pending_signals.pop(idx)
-                    st.rerun()
 
-# --- 7. OPEN POSITIONS & INSTANT MANUAL CLOSE ---
-active_trades_placeholder = st.empty()
+    # Open Positions & Instant Manual Close
+    active_trades_placeholder = st.empty()
 
-def render_active_trades():
-    with active_trades_placeholder.container():
-        if st.session_state.active_trades:
-            st.markdown("#### ⚡ Active Open Positions")
-            for idx, trade in enumerate(list(st.session_state.active_trades)):
-                sym = trade.get('Pair', 'N/A')
-                side = trade.get('Side', 'BUY')
-                entry_price = float(trade.get('Entry Price', 0.0))
-                qty = float(trade.get('Qty', 0.0))
-                current_price = float(st.session_state.latest_prices.get(sym, entry_price))
+    def render_active_trades():
+        with active_trades_placeholder.container():
+            if st.session_state.active_trades:
+                st.markdown("#### ⚡ Active Open Positions")
+                for idx, trade in enumerate(list(st.session_state.active_trades)):
+                    sym = trade.get('Pair', 'N/A')
+                    side = trade.get('Side', 'BUY')
+                    entry_price = float(trade.get('Entry Price', 0.0))
+                    qty = float(trade.get('Qty', 0.0))
+                    current_price = float(st.session_state.latest_prices.get(sym, entry_price))
 
-                if side == 'BUY':
-                    t_pnl = (current_price - entry_price) * qty
-                    t_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0.0
-                else:
-                    t_pnl = (entry_price - current_price) * qty
-                    t_pct = ((entry_price - current_price) / entry_price) * 100 if entry_price > 0 else 0.0
+                    if side == 'BUY':
+                        t_pnl = (current_price - entry_price) * qty
+                        t_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0.0
+                    else:
+                        t_pnl = (entry_price - current_price) * qty
+                        t_pct = ((entry_price - current_price) / entry_price) * 100 if entry_price > 0 else 0.0
 
-                c1, c2, c3, c4, c5 = st.columns([2, 1.4, 1.4, 1.8, 1.2])
-                with c1:
-                    side_clr = "#22c55e" if side == "BUY" else "#ef4444"
-                    st.markdown(f"**{sym}** <span style='color:{side_clr}; font-weight:700;'>[{side}]</span>", unsafe_allow_html=True)
-                    st.caption(f"Qty: {qty} · {trade.get('Leverage', '10x')} ({trade.get('Mode', 'PAPER')})")
-                with c2:
-                    st.caption("Entry Price")
-                    st.write(f"${entry_price:,.4f}" if entry_price < 10 else f"${entry_price:,.2f}")
-                with c3:
-                    st.caption("Live Price")
-                    st.write(f"${current_price:,.4f}" if current_price < 10 else f"${current_price:,.2f}")
-                with c4:
-                    st.caption("Unrealized PnL")
-                    p_clr = "#22c55e" if t_pnl >= 0 else "#ef4444"
-                    st.markdown(f"<span style='color:{p_clr}; font-weight:700;'>${t_pnl:+.2f} ({t_pct:+.2f}%)</span>", unsafe_allow_html=True)
-                with c5:
-                    st.write("")
-                    if st.button("✖ Close", key=f"close_btn_{idx}_{sym}_{trade.get('Time', '')}"):
-                        close_active_trade(idx, demo_mode, selected_exchange, api_key, api_secret, api_passphrase)
-                        st.rerun()
+                    c1, c2, c3, c4, c5 = st.columns([2, 1.4, 1.4, 1.8, 1.2])
+                    with c1:
+                        side_clr = "#22c55e" if side == "BUY" else "#ef4444"
+                        st.markdown(f"**{sym}** <span style='color:{side_clr}; font-weight:700;'>[{side}]</span>", unsafe_allow_html=True)
+                        st.caption(f"Qty: {qty} · {trade.get('Leverage', '10x')} ({trade.get('Mode', 'PAPER')})")
+                    with c2:
+                        st.caption("Entry Price")
+                        st.write(f"${entry_price:,.4f}" if entry_price < 10 else f"${entry_price:,.2f}")
+                    with c3:
+                        st.caption("Live Price")
+                        st.write(f"${current_price:,.4f}" if current_price < 10 else f"${current_price:,.2f}")
+                    with c4:
+                        st.caption("Unrealized PnL")
+                        p_clr = "#22c55e" if t_pnl >= 0 else "#ef4444"
+                        st.markdown(f"<span style='color:{p_clr}; font-weight:700;'>${t_pnl:+.2f} ({t_pct:+.2f}%)</span>", unsafe_allow_html=True)
+                    with c5:
+                        st.write("")
+                        if st.button("✖ Close", key=f"close_btn_{idx}_{sym}_{trade.get('Time', '')}"):
+                            close_active_trade(idx)
+                            st.rerun()
 
-if not st.session_state.bot_running:
-    render_active_trades()
-
-live_scanner_placeholder = st.empty()
-log_placeholder = st.empty()
-
-# --- 8. LIVE MARKET SCANNER ENGINE ---
-if st.session_state.bot_running:
-    try:
-        exchange = create_exchange_instance(selected_exchange, api_key, api_secret, api_passphrase)
-        exchange.load_markets()
-
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        scanner_rows = []
-
-        for sym in selected_symbols:
-            try:
-                bars = exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=150)
-                df = pd.DataFrame(bars, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-
-                res = calculate_halftrend_signals(df, amplitude, channel_dev, base_risk_mult, signal_mode)
-                signal = res["signal"]
-                live_px = res["live_price"]
-                entry_px = res["entry_price"]
-                candle_ts = res["candle_ts"]
-
-                st.session_state.latest_prices[sym] = live_px
-
-                scanner_rows.append({
-                    "Pair": sym,
-                    "Live Price": f"${live_px:,.4f}" if live_px < 10 else f"${live_px:,.2f}",
-                    "HalfTrend Line": f"${res['ht_line']:,.4f}" if res['ht_line'] < 10 else f"${res['ht_line']:,.2f}",
-                    "Trend": res["trend"],
-                    "Signal": signal if signal else "Holding Trend..."
-                })
-
-                current_active_count = len(st.session_state.active_trades)
-
-                if signal in ["BUY", "SELL"]:
-                    if st.session_state.last_signal_candle.get(sym) != candle_ts:
-                        st.session_state.last_signal_candle[sym] = candle_ts
-                        already_pending = any(p["Pair"] == sym for p in st.session_state.pending_signals)
-
-                        if current_active_count >= max_open_trades:
-                            st.toast(f"⚠️ Max Open Trades ({max_open_trades}) reached. Skipped {sym}.")
-                        elif not already_pending:
-                            raw_qty = (capital_usdt * leverage) / live_px
-                            qty = float(exchange.amount_to_precision(sym, raw_qty))
-                            chosen_tp = res["tp1"] if "TP1" in tp_target_choice else (res["tp2"] if "TP2" in tp_target_choice else res["tp3"])
-
-                            trade_payload = {
-                                "Time": now_str,
-                                "Exchange": selected_exchange,
-                                "Pair": sym,
-                                "Side": signal,
-                                "Qty": qty,
-                                "Entry Price": round(entry_px, 4),
-                                "Stop Loss": round(res["sl"], 4),
-                                "TP1": round(res["tp1"], 4),
-                                "TP2": round(res["tp2"], 4),
-                                "TP3": round(res["tp3"], 4),
-                                "Selected TP": round(chosen_tp, 4),
-                                "Leverage": f"{leverage}x",
-                                "LeverageNum": leverage
-                            }
-
-                            if "Semi-Automatic" in execution_mode:
-                                st.session_state.pending_signals.append(trade_payload)
-                                st.toast(f"🔔 HalfTrend {signal} Signal on {sym}!")
-                                st.rerun()
-                            else:
-                                execute_trade_action(sig_data=trade_payload, is_demo=demo_mode, ex_label=selected_exchange, key=api_key, secret=api_secret, pass_phrase=api_passphrase)
-
-            except Exception as pair_err:
-                scanner_rows.append({
-                    "Pair": sym,
-                    "Live Price": "Error",
-                    "HalfTrend Line": "-",
-                    "Trend": "Error",
-                    "Signal": str(pair_err)[:50]
-                })
-
+    if not st.session_state.bot_running:
         render_active_trades()
 
-        if st.session_state.show_scanner:
-            with live_scanner_placeholder.container():
-                st.markdown(f"#### 📡 Live Multi-Asset Scanner ({now_str})")
-                st.dataframe(pd.DataFrame(scanner_rows), use_container_width=True, hide_index=True)
+    live_scanner_placeholder = st.empty()
+    log_placeholder = st.empty()
 
+    # Live Market Scanner Engine
+    if st.session_state.bot_running:
+        try:
+            exchange = create_exchange_instance(
+                st.session_state.cfg_exchange,
+                st.session_state.cfg_api_key,
+                st.session_state.cfg_api_secret,
+                st.session_state.cfg_api_pass
+            )
+            exchange.load_markets()
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            scanner_rows = []
+
+            for sym in selected_symbols:
+                try:
+                    bars = exchange.fetch_ohlcv(sym, timeframe=st.session_state.cfg_timeframe, limit=150)
+                    df = pd.DataFrame(bars, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+
+                    res = calculate_halftrend_signals(
+                        df,
+                        st.session_state.cfg_amplitude,
+                        st.session_state.cfg_channel_dev,
+                        st.session_state.cfg_risk_mult,
+                        st.session_state.cfg_signal_mode
+                    )
+                    signal = res["signal"]
+                    live_px = res["live_price"]
+                    entry_px = res["entry_price"]
+                    candle_ts = res["candle_ts"]
+
+                    st.session_state.latest_prices[sym] = live_px
+
+                    scanner_rows.append({
+                        "Pair": sym,
+                        "Live Price": f"${live_px:,.4f}" if live_px < 10 else f"${live_px:,.2f}",
+                        "HalfTrend Line": f"${res['ht_line']:,.4f}" if res['ht_line'] < 10 else f"${res['ht_line']:,.2f}",
+                        "Trend": res["trend"],
+                        "Signal": signal if signal else "Holding Trend..."
+                    })
+
+                    current_active_count = len(st.session_state.active_trades)
+
+                    if signal in ["BUY", "SELL"]:
+                        if st.session_state.last_signal_candle.get(sym) != candle_ts:
+                            st.session_state.last_signal_candle[sym] = candle_ts
+                            already_pending = any(p["Pair"] == sym for p in st.session_state.pending_signals)
+
+                            if current_active_count >= max_open_trades:
+                                st.toast(f"⚠️ Max Open Trades ({max_open_trades}) reached. Skipped {sym}.")
+                            elif not already_pending:
+                                raw_qty = (capital_usdt * leverage) / live_px
+                                qty = float(exchange.amount_to_precision(sym, raw_qty))
+                                tp_choice = st.session_state.cfg_tp_choice
+                                chosen_tp = res["tp1"] if "TP1" in tp_choice else (res["tp2"] if "TP2" in tp_choice else res["tp3"])
+
+                                trade_payload = {
+                                    "Time": now_str,
+                                    "Exchange": selected_exchange,
+                                    "Pair": sym,
+                                    "Side": signal,
+                                    "Qty": qty,
+                                    "Entry Price": round(entry_px, 4),
+                                    "Stop Loss": round(res["sl"], 4),
+                                    "TP1": round(res["tp1"], 4),
+                                    "TP2": round(res["tp2"], 4),
+                                    "TP3": round(res["tp3"], 4),
+                                    "Selected TP": round(chosen_tp, 4),
+                                    "Leverage": f"{leverage}x",
+                                    "LeverageNum": leverage
+                                }
+
+                                if "Semi-Automatic" in st.session_state.cfg_exec_mode:
+                                    st.session_state.pending_signals.append(trade_payload)
+                                    st.toast(f"🔔 HalfTrend {signal} Signal on {sym}!")
+                                    st.rerun()
+                                else:
+                                    execute_trade_action(trade_payload)
+
+                except Exception as pair_err:
+                    scanner_rows.append({
+                        "Pair": sym,
+                        "Live Price": "Error",
+                        "HalfTrend Line": "-",
+                        "Trend": "Error",
+                        "Signal": str(pair_err)[:50]
+                    })
+
+            render_active_trades()
+
+            if st.session_state.show_scanner:
+                with live_scanner_placeholder.container():
+                    st.markdown(f"#### 📡 Live Multi-Asset Scanner ({now_str})")
+                    st.dataframe(pd.DataFrame(scanner_rows), use_container_width=True, hide_index=True)
+
+            if st.session_state.trade_logs:
+                with log_placeholder.container():
+                    st.markdown("#### 📜 Trade History Log")
+                    st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
+
+            time.sleep(10)
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ Connection / Execution Error: {str(e)}")
+            st.session_state.bot_running = False
+    else:
         if st.session_state.trade_logs:
             with log_placeholder.container():
                 st.markdown("#### 📜 Trade History Log")
                 st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
-
-        time.sleep(10)
-        st.rerun()
-
-    except Exception as e:
-        st.error(f"❌ Connection / Execution Error: {str(e)}")
-        st.session_state.bot_running = False
-else:
-    if st.session_state.trade_logs:
-        with log_placeholder.container():
-            st.markdown("#### 📜 Trade History Log")
-            st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
