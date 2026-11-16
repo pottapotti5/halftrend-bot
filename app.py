@@ -430,6 +430,83 @@ live_scanner_placeholder = st.empty()
 
 st.markdown("### 📜 Executed Trades & Signals Log")
 log_placeholder = st.empty()
+# --- Live PnL & Manual Close Management Section ---
+if 'active_trades' in st.session_state and len(st.session_state.active_trades) > 0:
+    st.markdown("### 📊 Active Trades Management (PnL & Close)")
+    
+    for idx, trade in enumerate(st.session_state.active_trades):
+        # ট্রেড ডিকশনারি থেকে মানগুলো নিরাপদে বের করে নেওয়া
+        sym = trade.get('Pair', 'N/A')
+        side = trade.get('Side', 'BUY')
+        entry_price = trade.get('Entry Price', 0.0)
+        qty = trade.get('Qty', 0.0)
+        
+        # লাইভ প্রাইস সেট করা
+        current_price = locals().get('live_px', entry_price)
+        
+        # PnL হিসাব করা
+        if side == 'BUY':
+            pnl_usdt = (current_price - entry_price) * qty
+            pnl_percent = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0.0
+        else:
+            pnl_usdt = (entry_price - current_price) * qty
+            pnl_percent = ((entry_price - current_price) / entry_price) * 100 if entry_price > 0 else 0.0
+
+        # কলাম ও ক্লোজ বাটন ডিজাইন
+        col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1])
+        with col_t1:
+            st.write(f"**{sym}** ({side})")
+            st.text(f"Entry: {entry_price}")
+        with col_t2:
+            st.text(f"Live: {current_price}")
+        with col_t3:
+            color = "green" if pnl_usdt >= 0 else "red"
+            st.markdown(f"<span style='color:{color}; font-weight:bold;'>PnL: ${pnl_usdt:.2f} ({pnl_percent:+.2f}%)</span>", unsafe_allow_html=True)
+        with col_t4:
+            if st.button("Close", key=f"manual_close_{idx}"):
+                trade['status'] = 'CLOSED_MANUAL'
+                st.session_state.active_trades.pop(idx)
+                st.success(f"{sym} manual closed successfully!")
+                st.rerun()
+  for idx, trade in enumerate(st.session_state.active_trades):
+    sym = trade['Pair']
+    side = trade['Side']
+    entry_price = trade['Entry Price']
+    qty = trade['Qty']
+
+    # লাইভ প্রাইস বের করা (যদি স্ক্যানার থেকে পাওয়া যায়)
+    current_price = locals().get('live_px', entry_price)
+
+    # PnL হিসাব
+    if side == 'BUY':
+      pnl_usdt = (current_price - entry_price) * qty
+      pnl_percent = ((current_price - entry_price) / entry_price) * 100
+    else:
+      pnl_usdt = (entry_price - current_price) * qty
+      pnl_percent = ((entry_price - current_price) / entry_price) * 100
+
+    # UI কলাম তৈরি
+    col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1])
+    with col_t1:
+      st.write(f'**{sym}** ({side})')
+      st.text(f'Entry: {entry_price}')
+    with col_t2:
+      st.text(f'Live: {current_price}')
+    with col_t3:
+      color = 'green' if pnl_usdt >= 0 else 'red'
+      st.markdown(
+          f"<span style='color:{color}; font-weight:bold;'>PnL: ${pnl_usdt:.2f}"
+          f' ({pnl_percent:+.2f}%)</span>',
+          unsafe_allow_html=True,
+      )
+    with col_t4:
+      if st.button('Close', key=f'manual_close_{idx}'):
+        # ট্রেড ক্লোজ করার লজিক
+        trade['status'] = 'CLOSED_MANUAL'
+        # চাইলে ক্লোজড হিস্টরিতে পাঠাতে পারেন অথবা লিস্ট থেকে রিমুভ করতে পারেন
+        st.session_state.active_trades.pop(idx)
+        st.success(f'{sym} manual closed successfully!')
+        st.rerun()
 
 if st.session_state.bot_running:
     try:
