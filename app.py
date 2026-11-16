@@ -13,17 +13,50 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for clean dark trading dashboard
+# Custom CSS for clean dark SaaS trading dashboard (Algopulse Style)
 st.markdown("""
 <style>
     .stApp {
         background-color: #0b0e14;
         color: #e2e8f0;
     }
+    /* Metric Cards Styling */
+    div[data-testid="stMetric"] {
+        background-color: #131722;
+        border: 1px solid #1e2638;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #f8fafc;
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+    /* Primary & Action Buttons */
     .stButton>button {
         width: 100%;
         border-radius: 8px;
-        font-weight: bold;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+    /* Trade Row Card */
+    .trade-card {
+        background-color: #131722;
+        border: 1px solid #1e2638;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 10px;
+    }
+    /* Header & Divider */
+    hr {
+        border-color: #1e2638;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -33,6 +66,8 @@ if "bot_running" not in st.session_state:
     st.session_state.bot_running = False
 if "trade_logs" not in st.session_state:
     st.session_state.trade_logs = []
+if "active_trades" not in st.session_state:
+    st.session_state.active_trades = []
 if "pending_signals" not in st.session_state:
     st.session_state.pending_signals = []
 if "loaded_pairs" not in st.session_state:
@@ -41,10 +76,8 @@ if "connected_exchange_name" not in st.session_state:
     st.session_state.connected_exchange_name = ""
 if "last_signal_candle" not in st.session_state:
     st.session_state.last_signal_candle = {}
-
-# Header
-st.title("📈 HalfTrend Multi-Pair Automated Trading Platform")
-st.caption("Advanced HalfTrend Engine • ATR(100)/2 Risk Management • Bi-Directional Long & Short Active • Manual Approval Mode")
+if "latest_prices" not in st.session_state:
+    st.session_state.latest_prices = {}
 
 # Supported Exchanges Map
 EXCHANGE_OPTIONS = {
@@ -216,7 +249,6 @@ def calculate_halftrend_signals(df, amplitude=20, channel_deviation=2.0, base_ri
     tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
     atr100 = pd.Series(tr).ewm(alpha=1/100, adjust=False).mean().values
     atr2 = atr100 / 2.0
-    dev = channel_deviation * atr2
 
     highma = pd.Series(high).rolling(window=amplitude, min_periods=1).mean().values
     lowma = pd.Series(low).rolling(window=amplitude, min_periods=1).mean().values
@@ -300,7 +332,6 @@ def calculate_halftrend_signals(df, amplitude=20, channel_deviation=2.0, base_ri
         buy_signal = (trend_flipped and curr_trend == 0) or bullish_dip
         sell_signal = (trend_flipped and curr_trend == 1) or bearish_rally
     else:
-        # Dynamic Both Directions: Triggers on ANY trend flip OR strong rejection at HalfTrend line in either direction
         bullish_trigger = (trend_flipped and curr_trend == 0) or ((curr_trend == 0) and (low[confirmed_idx] <= ht_val * 1.01) and is_green)
         bearish_trigger = (trend_flipped and curr_trend == 1) or ((curr_trend == 1) and (high[confirmed_idx] >= ht_val * 0.99) and is_red)
         buy_signal = bullish_trigger
@@ -353,7 +384,7 @@ def execute_trade_action(sig_data, is_demo, ex_label, key, secret, pass_phrase):
         if not is_demo:
             try:
                 ex.set_leverage(sig_data["LeverageNum"], symbol)
-            except:
+            except Exception:
                 pass
             sl_prec = float(ex.price_to_precision(symbol, sl))
             tp_prec = float(ex.price_to_precision(symbol, tp))
@@ -365,24 +396,105 @@ def execute_trade_action(sig_data, is_demo, ex_label, key, secret, pass_phrase):
         else:
             sig_data["Mode"] = "PAPER"
 
-        st.session_state.trade_logs.insert(0, sig_data)
+        sig_data["Status"] = "OPEN"
+        st.session_state.active_trades.insert(0, sig_data.copy())
+        st.session_state.trade_logs.insert(0, sig_data.copy())
         st.success(f"✅ Trade Executed ({sig_data['Mode']}) on {symbol}!")
     except Exception as ex_err:
         st.error(f"Execution Error on {sig_data['Pair']}: {str(ex_err)}")
 
-# Top Overview Metrics
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Connected Exchange", selected_exchange)
-col2.metric("Active Pairs", f"{len(selected_symbols)} Pairs ({timeframe})")
-col3.metric("Mode", "Semi-Auto (Manual)" if "Semi-Automatic" in execution_mode else "Fully Auto")
-col4.metric("Max Trades Limit", f"{len(st.session_state.trade_logs)} / {max_open_trades}")
+def close_active_trade(idx, is_demo, ex_label, key, secret, pass_phrase):
+    trade = st.session_state.active_trades[idx]
+    symbol = trade["Pair"]
+    side = trade["Side"]
+    qty = trade["Qty"]
+    entry_px = trade["Entry Price"]
+    exit_px = st.session_state.latest_prices.get(symbol, entry_px)
 
-if selected_symbols:
-    st.caption(f"🎯 **Multi-Asset Watchlist:** {', '.join(selected_symbols)} | **Mode:** Bi-Directional Long & Short Active")
+    try:
+        if not is_demo and trade.get("Mode") == "LIVE":
+            ex = create_exchange_instance(ex_label, key, secret, pass_phrase)
+            ex.load_markets()
+            if side == "BUY":
+                ex.create_market_sell_order(symbol, qty, params={'reduceOnly': True})
+            else:
+                ex.create_market_buy_order(symbol, qty, params={'reduceOnly': True})
+
+        pnl_usdt = (exit_px - entry_px) * qty if side == "BUY" else (entry_px - exit_px) * qty
+        closed_record = trade.copy()
+        closed_record["Status"] = "CLOSED (MANUAL)"
+        closed_record["Exit Price"] = round(exit_px, 4)
+        closed_record["Realized PnL ($)"] = round(pnl_usdt, 2)
+        closed_record["Closed Time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        st.session_state.trade_logs.insert(0, closed_record)
+        st.session_state.active_trades.pop(idx)
+        st.success(f"✅ {symbol} Closed Manually | Realized PnL: ${pnl_usdt:+.2f}")
+    except Exception as err:
+        st.error(f"Error closing {symbol}: {str(err)}")
+
+# --- SaaS / Algopulse Style Header ---
+st.title("📈 Deployed Strategies & Multi-Pair Algo Desk")
+st.caption(f"Connected Broker: **{selected_exchange}** • Strategy: **HalfTrend ATR(100)/2** • Leverage: **{leverage}x**")
+
+# Calculate Total Unrealized PnL across active trades
+total_unrealized_pnl = 0.0
+for t in st.session_state.active_trades:
+    cur_p = st.session_state.latest_prices.get(t["Pair"], t["Entry Price"])
+    if t["Side"] == "BUY":
+        total_unrealized_pnl += (cur_p - t["Entry Price"]) * t["Qty"]
+    else:
+        total_unrealized_pnl += (t["Entry Price"] - cur_p) * t["Qty"]
+
+# Top SaaS Overview Cards
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(
+        label="Margin / Trade & Unrealized PnL",
+        value=f"${capital_usdt:,.2f}",
+        delta=f"{total_unrealized_pnl:+.2f} USDT"
+    )
+with col2:
+    st.metric(
+        label="Strategy Status",
+        value="1 / 1 Active" if st.session_state.bot_running else "0 / 1 Stopped",
+        delta="Running Live" if st.session_state.bot_running else "Idle"
+    )
+with col3:
+    st.metric(
+        label="Open Positions",
+        value=f"{len(st.session_state.active_trades)} / {max_open_trades}",
+        delta=f"{len(st.session_state.pending_signals)} Pending Approval"
+    )
+with col4:
+    st.metric(
+        label="Execution Environment",
+        value="Paper Test" if demo_mode else "LIVE Account",
+        delta="Semi-Auto" if "Semi-Automatic" in execution_mode else "Fully Auto"
+    )
 
 st.markdown("---")
 
-# Manual Approval Notification Area (Supports Multiple Pending Signals)
+# Strategy Action Controls
+btn_col1, btn_col2, _ = st.columns([1.2, 1.2, 2.6])
+with btn_col1:
+    if st.button("🚀 Deploy & Start Strategy", type="primary"):
+        if not selected_symbols:
+            st.error("⚠️ অন্তত ১টি বা তার বেশি পেয়ার সিলেক্ট করুন!")
+        elif not demo_mode and (not api_key or not api_secret):
+            st.error("⚠️ লাইভ ট্রেডের জন্য বাম পাশে API Key এবং Secret দিন অথবা Paper Trading Mode চালু করুন।")
+        else:
+            st.session_state.bot_running = True
+            st.rerun()
+with btn_col2:
+    if st.button("🛑 Stop Strategy"):
+        st.session_state.bot_running = False
+        st.session_state.pending_signals = []
+        st.rerun()
+
+status_banner = st.empty()
+
+# Manual Approval Notification Area
 if st.session_state.pending_signals:
     st.warning(f"🚨 **{len(st.session_state.pending_signals)} HalfTrend Signal(s) Waiting for Your Approval!**")
     for idx, sig in enumerate(list(st.session_state.pending_signals)):
@@ -394,12 +506,12 @@ if st.session_state.pending_signals:
             pcol4.metric("Stop Loss", f"${sig['Stop Loss']}")
             pcol5.metric("TP1 / TP2", f"${sig['TP1']} / ${sig['TP2']}")
             pcol6.metric("TP3 (3x)", f"${sig['TP3']}")
-            st.info(f"📋 **{sig['Pair']} HalfTrend Setup:** Triggered at {sig['Time']} | Active Exchange Order TP: **${sig['Selected TP']}** ({tp_target_choice})")
+            st.info(f"📋 **{sig['Pair']} Setup:** Triggered at {sig['Time']} | Active Target TP: **${sig['Selected TP']}** ({tp_target_choice})")
 
             b_col1, b_col2, _ = st.columns([1, 1, 2])
             with b_col1:
                 if st.button(f"✅ Approve & Execute {sig['Pair']}", key=f"app_{idx}_{sig['Pair']}", type="primary"):
-                    if len(st.session_state.trade_logs) >= max_open_trades:
+                    if len(st.session_state.active_trades) >= max_open_trades:
                         st.error(f"⚠️ Max Open Trades Limit ({max_open_trades}) পূর্ণ হয়ে গেছে!")
                     else:
                         execute_trade_action(sig, demo_mode, selected_exchange, api_key, api_secret, api_passphrase)
@@ -411,117 +523,60 @@ if st.session_state.pending_signals:
                     st.rerun()
         st.markdown("---")
 
-btn_col1, btn_col2, _ = st.columns([1, 1, 2])
-with btn_col1:
-    if st.button("🚀 Deploy & Start Multi-Pair HalfTrend", type="primary"):
-        if not selected_symbols:
-            st.error("⚠️ অন্তত ১টি বা তার বেশি পেয়ার সিলেক্ট করুন!")
-        elif not demo_mode and (not api_key or not api_secret):
-            st.error("⚠️ লাইভ ট্রেডের জন্য বাম পাশে API Key এবং Secret দিন অথবা Paper Trading Mode চালু করুন।")
-        else:
-            st.session_state.bot_running = True
-with btn_col2:
-    if st.button("🛑 Stop Strategy"):
-        st.session_state.bot_running = False
-        st.session_state.pending_signals = []
+# Active Trades Management Section (Live PnL & Instant Manual Close)
+active_trades_placeholder = st.empty()
 
-status_banner = st.empty()
+def render_active_trades():
+    with active_trades_placeholder.container():
+        st.subheader(f"⚡ Open Positions & Live PnL ({len(st.session_state.active_trades)})")
+        if not st.session_state.active_trades:
+            st.info("কোনো ওপেন পজিশন নেই। নতুন সিগন্যাল এক্সিকিউট হলে এখানে লাইভ PnL ও Close বাটন দেখা যাবে।")
+        else:
+            for idx, trade in enumerate(list(st.session_state.active_trades)):
+                sym = trade.get('Pair', 'N/A')
+                side = trade.get('Side', 'BUY')
+                entry_price = float(trade.get('Entry Price', 0.0))
+                qty = float(trade.get('Qty', 0.0))
+                current_price = float(st.session_state.latest_prices.get(sym, entry_price))
+
+                if side == 'BUY':
+                    pnl_usdt = (current_price - entry_price) * qty
+                    pnl_percent = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0.0
+                else:
+                    pnl_usdt = (entry_price - current_price) * qty
+                    pnl_percent = ((entry_price - current_price) / entry_price) * 100 if entry_price > 0 else 0.0
+
+                col_t1, col_t2, col_t3, col_t4, col_t5 = st.columns([2, 1.5, 1.5, 2, 1.2])
+                with col_t1:
+                    badge_color = "#22c55e" if side == "BUY" else "#ef4444"
+                    st.markdown(f"**{sym}** <span style='color:{badge_color}; font-weight:bold;'>[{side}]</span>", unsafe_allow_html=True)
+                    st.caption(f"Qty: {qty} | {trade.get('Leverage', '10x')} ({trade.get('Mode', 'PAPER')})")
+                with col_t2:
+                    st.write("**Entry Price**")
+                    st.text(f"${entry_price:,.4f}" if entry_price < 10 else f"${entry_price:,.2f}")
+                with col_t3:
+                    st.write("**Live Price**")
+                    st.text(f"${current_price:,.4f}" if current_price < 10 else f"${current_price:,.2f}")
+                with col_t4:
+                    pnl_color = "#22c55e" if pnl_usdt >= 0 else "#ef4444"
+                    st.write("**Unrealized PnL**")
+                    st.markdown(
+                        f"<span style='color:{pnl_color}; font-size:1.05rem; font-weight:bold;'>${pnl_usdt:+.2f} ({pnl_percent:+.2f}%)</span>",
+                        unsafe_allow_html=True
+                    )
+                with col_t5:
+                    st.write("")
+                    if st.button("✖ Close Trade", key=f"manual_close_{idx}_{sym}"):
+                        close_active_trade(idx, demo_mode, selected_exchange, api_key, api_secret, api_passphrase)
+                        st.rerun()
+                st.markdown("---")
+
+render_active_trades()
+
 live_scanner_placeholder = st.empty()
 
-st.markdown("### 📜 Executed Trades & Signals Log")
+st.subheader("📜 Executed Trades & History Log")
 log_placeholder = st.empty()
-# Active Trades Management & Manual Close Section
-if (
-    'active_trades' in st.session_state
-    and len(st.session_state.active_trades) > 0
-):
-  st.markdown('### 📊 Active Trades Management (PnL & Close)')
-
-  for idx, trade in enumerate(st.session_state.active_trades):
-    # ট্রেড ডিকশনারি থেকে মানগুলো নিরাপদে বের করে নেওয়া
-    sym = trade.get('Pair', 'N/A')
-    side = trade.get('Side', 'BUY')
-    entry_price = trade.get('Entry Price', 0.0)
-    qty = trade.get('Qty', 0.0)
-
-    # লাইভ প্রাইস সেট করা
-    current_price = locals().get('live_px', entry_price)
-
-    # PnL হিসাব করা
-    if side == 'BUY':
-      pnl_usdt = (current_price - entry_price) * qty
-      pnl_percent = (
-          ((current_price - entry_price) / entry_price) * 100
-          if entry_price > 0
-          else 0.0
-      )
-    else:
-      pnl_usdt = (entry_price - current_price) * qty
-      pnl_percent = (
-          ((entry_price - current_price) / entry_price) * 100
-          if entry_price > 0
-          else 0.0
-      )
-
-    # কলাম ও ক্লোজ বাটন ডিজাইন
-    col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1])
-    with col_t1:
-      st.write(f'**{sym}** ({side})')
-      st.text(f'Entry: {entry_price}')
-    with col_t2:
-      st.text(f'Live: {current_price}')
-    with col_t3:
-      color = 'green' if pnl_usdt >= 0 else 'red'
-      st.markdown(
-          f"<span style='color:{color}; font-weight:bold;'>PnL: ${pnl_usdt:.2f}"
-          f' ({pnl_percent:+.2f}%)</span>',
-          unsafe_allow_html=True,
-      )
-    with col_t4:
-      if st.button('Close', key=f'manual_close_{idx}'):
-        trade['status'] = 'CLOSED_MANUAL'
-        st.session_state.active_trades.pop(idx)
-        st.success(f'{sym} manual closed successfully!')
-        st.rerun()
-  for idx, trade in enumerate(st.session_state.active_trades):
-    sym = trade['Pair']
-    side = trade['Side']
-    entry_price = trade['Entry Price']
-    qty = trade['Qty']
-
-    # লাইভ প্রাইস বের করা (যদি স্ক্যানার থেকে পাওয়া যায়)
-    current_price = locals().get('live_px', entry_price)
-
-    # PnL হিসাব
-    if side == 'BUY':
-      pnl_usdt = (current_price - entry_price) * qty
-      pnl_percent = ((current_price - entry_price) / entry_price) * 100
-    else:
-      pnl_usdt = (entry_price - current_price) * qty
-      pnl_percent = ((entry_price - current_price) / entry_price) * 100
-
-    # UI কলাম তৈরি
-    col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1])
-    with col_t1:
-      st.write(f'**{sym}** ({side})')
-      st.text(f'Entry: {entry_price}')
-    with col_t2:
-      st.text(f'Live: {current_price}')
-    with col_t3:
-      color = 'green' if pnl_usdt >= 0 else 'red'
-      st.markdown(
-          f"<span style='color:{color}; font-weight:bold;'>PnL: ${pnl_usdt:.2f}"
-          f' ({pnl_percent:+.2f}%)</span>',
-          unsafe_allow_html=True,
-      )
-    with col_t4:
-      if st.button('Close', key=f'manual_close_{idx}'):
-        # ট্রেড ক্লোজ করার লজিক
-        trade['status'] = 'CLOSED_MANUAL'
-        # চাইলে ক্লোজড হিস্টরিতে পাঠাতে পারেন অথবা লিস্ট থেকে রিমুভ করতে পারেন
-        st.session_state.active_trades.pop(idx)
-        st.success(f'{sym} manual closed successfully!')
-        st.rerun()
 
 if st.session_state.bot_running:
     try:
@@ -529,7 +584,7 @@ if st.session_state.bot_running:
         exchange.load_markets()
 
         mode_label = "LIVE" if not demo_mode else "PAPER TRADING"
-        status_banner.success(f"🟢 {mode_label} ACTIVE on {selected_exchange} | HalfTrend Multi-Asset Scanner ({len(selected_symbols)} Pairs)")
+        status_banner.success(f"🟢 {mode_label} ACTIVE on {selected_exchange} | Multi-Asset Scanner ({len(selected_symbols)} Pairs)")
 
         while st.session_state.bot_running:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -546,6 +601,9 @@ if st.session_state.bot_running:
                     entry_px = res["entry_price"]
                     candle_ts = res["candle_ts"]
 
+                    # Store latest live price per symbol for accurate PnL calculation
+                    st.session_state.latest_prices[sym] = live_px
+
                     scanner_rows.append({
                         "Pair": sym,
                         "Live Price": f"${live_px:,.4f}" if live_px < 10 else f"${live_px:,.2f}",
@@ -554,14 +612,14 @@ if st.session_state.bot_running:
                         "Confirmed Signal": signal if signal else "Holding Trend..."
                     })
 
-                    current_active_trades = len(st.session_state.trade_logs)
+                    current_active_count = len(st.session_state.active_trades)
 
                     if signal in ["BUY", "SELL"]:
                         if st.session_state.last_signal_candle.get(sym) != candle_ts:
                             st.session_state.last_signal_candle[sym] = candle_ts
                             already_pending = any(p["Pair"] == sym for p in st.session_state.pending_signals)
 
-                            if current_active_trades >= max_open_trades:
+                            if current_active_count >= max_open_trades:
                                 st.toast(f"⚠️ Max Open Trades ({max_open_trades}) reached. Skipped {sym}.")
                             elif not already_pending:
                                 raw_qty = (capital_usdt * leverage) / live_px
@@ -601,13 +659,16 @@ if st.session_state.bot_running:
                         "Confirmed Signal": str(pair_err)[:50]
                     })
 
+            # Refresh Live Active Trades PnL UI
+            render_active_trades()
+
             with live_scanner_placeholder.container():
-                st.subheader(f"📡 Multi-Asset HalfTrend Dashboard ({now_str})")
+                st.subheader(f"📡 Multi-Asset HalfTrend Live Scanner ({now_str})")
                 st.dataframe(pd.DataFrame(scanner_rows), use_container_width=True, hide_index=True)
 
             with log_placeholder.container():
                 if st.session_state.trade_logs:
-                    st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True)
+                    st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
                 else:
                     st.info(f"🕒 `{now_str}` — সিলেক্ট করা **{len(selected_symbols)}টি পেয়ারে** HalfTrend সিগন্যাল স্ক্যান হচ্ছে...")
 
@@ -617,9 +678,9 @@ if st.session_state.bot_running:
         st.error(f"❌ Connection / Execution Error: {str(e)}")
         st.session_state.bot_running = False
 else:
-    status_banner.warning("⏸️ Strategy is currently Stopped. বাম পাশ থেকে সেটিংস চেক করে 'Deploy & Start Multi-Pair HalfTrend' ক্লিক করুন।")
+    status_banner.warning("⏸️ Strategy is currently Stopped. বাম পাশ থেকে সেটিংস চেক করে 'Deploy & Start Strategy' ক্লিক করুন।")
     with log_placeholder.container():
         if st.session_state.trade_logs:
-            st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True)
+            st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
         else:
             st.write("🕒 বট বন্ধ রয়েছে। বাম পাশ থেকে পেয়ার সিলেক্ট করে ডিপ্লয় করুন।")
