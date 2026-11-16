@@ -566,12 +566,13 @@ def render_active_trades():
                     )
                 with col_t5:
                     st.write("")
-                    if st.button("✖ Close Trade", key=f"manual_close_{idx}_{sym}"):
+                    if st.button("✖ Close Trade", key=f"manual_close_{idx}_{sym}_{trade.get('Time', '')}"):
                         close_active_trade(idx, demo_mode, selected_exchange, api_key, api_secret, api_passphrase)
                         st.rerun()
                 st.markdown("---")
 
-render_active_trades()
+if not st.session_state.bot_running:
+    render_active_trades()
 
 live_scanner_placeholder = st.empty()
 
@@ -586,7 +587,7 @@ if st.session_state.bot_running:
         mode_label = "LIVE" if not demo_mode else "PAPER TRADING"
         status_banner.success(f"🟢 {mode_label} ACTIVE on {selected_exchange} | Multi-Asset Scanner ({len(selected_symbols)} Pairs)")
 
-        while st.session_state.bot_running:
+        if st.session_state.bot_running:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             scanner_rows = []
 
@@ -673,6 +674,7 @@ if st.session_state.bot_running:
                     st.info(f"🕒 `{now_str}` — সিলেক্ট করা **{len(selected_symbols)}টি পেয়ারে** HalfTrend সিগন্যাল স্ক্যান হচ্ছে...")
 
             time.sleep(10)
+            st.rerun()
 
     except Exception as e:
         st.error(f"❌ Connection / Execution Error: {str(e)}")
