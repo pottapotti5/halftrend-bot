@@ -1109,7 +1109,16 @@ else:
     log_placeholder = st.empty()
 
     # Live Market Scanner Engine
-    if st.session_state.bot_running:
+    # --- Smooth Auto-Updating Fragment (No Screen Blinking!) ---
+    @st.fragment(run_every=10)
+    def live_market_engine():
+        if not st.session_state.bot_running:
+            render_active_trades()
+            if st.session_state.trade_logs:
+                st.markdown("#### 📜 Trade History Log")
+                st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
+            return
+
         try:
             exchange = create_exchange_instance(
                 st.session_state.cfg_exchange,
@@ -1208,14 +1217,8 @@ else:
                     st.markdown("#### 📜 Trade History Log")
                     st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
 
-            time.sleep(10)
-            st.rerun()
-
         except Exception as e:
             st.error(f"❌ Connection / Execution Error: {str(e)}")
             st.session_state.bot_running = False
-    else:
-        if st.session_state.trade_logs:
-            with log_placeholder.container():
-                st.markdown("#### 📜 Trade History Log")
-                st.dataframe(pd.DataFrame(st.session_state.trade_logs), use_container_width=True, hide_index=True)
+
+    live_market_engine()
