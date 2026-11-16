@@ -32,12 +32,9 @@ st.markdown("""
         padding-bottom: 3rem !important;
         max-width: 1380px !important;
     }
-
-    header[data-testid="stHeader"] {
-        background-color: rgba(7, 9, 14, 0.85);
-        backdrop-filter: blur(12px);
-    }
-
+header[data-testid="stHeader"] {
+    display: none !important;
+}
     /* Brand Header */
     .ap-brand-bar {
         display: flex;
